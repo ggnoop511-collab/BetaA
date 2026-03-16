@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Histology Explorer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#03080f;
+  --card:#0b1a2e;
+  --glow:#00ffd5;
+}
+body{
+  font-family:'Tajawal',sans-serif;
+  background:var(--bg);
+  color:#e0f0ff;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+/* animated mesh background */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 60% 50% at 20% 40%,rgba(0,255,213,.05),transparent),
+             radial-gradient(ellipse 50% 60% at 80% 60%,rgba(192,132,252,.04),transparent);
+  pointer-events:none;z-index:0;
+}
+
+/* HEADER */
+.hdr{text-align:center;padding:2.5rem 1rem 1rem;position:relative;z-index:1}
+.hdr h1{
+  font-size:clamp(1.5rem,5vw,2.8rem);font-weight:900;
+  background:linear-gradient(135deg,#00ffd5 0%,#a78bfa 50%,#f472b6 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1.3;
+}
+.hdr p{color:rgba(255,255,255,.35);font-size:.9rem;margin-top:.3rem}
+
+/* TABS */
+.tabs{
+  display:flex;max-width:700px;margin:1.2rem auto;
+  padding:0 1rem;gap:.5rem;position:relative;z-index:1;
+}
+.tab{
+  flex:1;padding:.65rem .4rem;
+  border:1.5px solid rgba(255,255,255,.1);
+  background:var(--card);color:rgba(255,255,255,.45);
+  border-radius:14px;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:.8rem;font-weight:700;
+  transition:all .3s;text-align:center;
+}
+.tab.on{border-color:var(--glow);color:var(--glow);background:rgba(0,255,213,.08);box-shadow:0 0 20px rgba(0,255,213,.15)}
+
+/* SECTIONS */
+.sec{display:none;position:relative;z-index:1}
+.sec.on{display:block}
+
+/* ══ SECTION 1: BODY ══ */
+.body-layout{
+  max-width:700px;margin:0 auto;padding:0 1rem 2rem;
+  display:grid;grid-template-columns:190px 1fr;gap:1rem;align-items:start;
+}
+@media(max-width:520px){.body-layout{grid-template-columns:1fr}}
+
+.fig-box{
+  background:var(--card);border:1.5px solid rgba(0,255,213,.12);
+  border-radius:20px;padding:1rem .7rem;
+}
+.fig-box h3{font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;text-align:center;margin-bottom:.8rem}
+.body-svg{position:relative;max-width:150px;margin:0 auto}
+.body-svg svg{width:100%;height:auto;display:block}
+
+/* hotspots */
+.hs{
+  position:absolute;width:24px;height:24px;border-radius:50%;
+  border:2px solid;cursor:pointer;
+  transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;font-weight:900;transition:all .25s;
+}
+.hs::after{
+  content:'';position:absolute;inset:-5px;border-radius:50%;
+  border:1.5px solid currentColor;
+  animation:ring 1.8s ease-out infinite;opacity:0;
+}
+@keyframes ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.9);opacity:0}}
+.hs:hover,.hs.on{transform:translate(-50%,-50%) scale(1.35);box-shadow:0 0 15px currentColor}
+
+.organ-panel{
+  background:var(--card);border:1.5px solid rgba(0,255,213,.12);
+  border-radius:20px;padding:1.3rem;min-height:300px;
+  transition:border-color .3s;
+}
+.organ-panel.lit{border-color:var(--oc,#00ffd5)}
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:280px;color:rgba(255,255,255,.2);gap:.8rem;text-align:center;
+}
+.empty-state .big{font-size:4rem;animation:float2 3s ease-in-out infinite}
+@keyframes float2{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+.o-head{display:flex;align-items:center;gap:.8rem;margin-bottom:.9rem;padding-bottom:.8rem;border-bottom:1px solid rgba(255,255,255,.06)}
+.o-ico{font-size:2.2rem}
+.o-name{font-size:1.15rem;font-weight:900}
+.o-en{font-size:.78rem;color:rgba(255,255,255,.38);direction:ltr;text-align:left}
+.badge{
+  display:inline-block;padding:.22rem .7rem;border-radius:20px;
+  font-size:.68rem;font-weight:700;border:1px solid;margin-bottom:.7rem;
+}
+.o-desc{font-size:.85rem;line-height:1.75;color:rgba(255,255,255,.72);margin-bottom:.8rem}
+.mini-title{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.75;margin-bottom:.45rem}
+.o-facts{list-style:none}
+.o-facts li{
+  font-size:.82rem;padding:.35rem 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  color:rgba(255,255,255,.65);display:flex;gap:.5rem;line-height:1.5;
+}
+.o-facts li b{color:rgba(255,255,255,.9)}
+
+/* ══ SECTION 2: CELL ══ */
+.cell-layout{max-width:700px;margin:0 auto;padding:0 1rem 2rem}
+.cell-btns{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.2rem}
+.cbt{
+  flex:1;min-width:110px;
+  padding:.6rem .4rem;border-radius:12px;
+  border:1.5px solid rgba(255,255,255,.1);
+  background:var(--card);color:rgba(255,255,255,.45);
+  cursor:pointer;font-family:'Tajawal',sans-serif;
+  font-size:.75rem;font-weight:700;transition:all .3s;text-align:center;
+}
+.cbt.on{
+  border-color:var(--cc);color:var(--cc);
+  background:rgba(255,255,255,.04);
+  box-shadow:0 0 15px var(--cca,#00ffd544);
+}
+.cell-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+@media(max-width:460px){.cell-grid{grid-template-columns:1fr}}
+
+.canvas-wrap{
+  background:#020810;border:1.5px solid rgba(255,255,255,.06);
+  border-radius:18px;overflow:hidden;aspect-ratio:1;position:relative;
+}
+canvas{width:100%;height:100%;display:block}
+
+.cell-info{
+  background:var(--card);border:1.5px solid rgba(255,255,255,.1);
+  border-radius:18px;padding:1.3rem;
+}
+.ci-name{font-size:1rem;font-weight:900;margin-bottom:.2rem}
+.ci-ar{font-size:.8rem;color:rgba(255,255,255,.38);margin-bottom:1rem;direction:rtl}
+.legend{display:flex;align-items:center;gap:.55rem;margin-bottom:.5rem;padding:.28rem .4rem;border-radius:8px;transition:background .2s;cursor:default}
+.legend:hover{background:rgba(255,255,255,.04)}
+.dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.leg-name{font-size:.75rem;color:rgba(255,255,255,.65);direction:rtl}
+.leg-name b{display:block;font-size:.72rem;color:#fff;direction:ltr;text-align:left}
+
+/* ══ SECTION 3: TOPICS ══ */
+.topics-layout{max-width:700px;margin:0 auto;padding:0 1rem 2rem}
+.nd-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:.9rem;margin-bottom:1.2rem;
+}
+@media(max-width:380px){.nd-grid{grid-template-columns:repeat(2,1fr)}}
+
+.nd{
+  background:var(--card);border:1.5px solid rgba(255,255,255,.08);
+  border-radius:16px;padding:1rem .6rem;text-align:center;
+  cursor:pointer;transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.nd::before{content:'';position:absolute;inset:0;background:var(--nc);opacity:0;transition:opacity .3s}
+.nd:hover::before,.nd.on::before{opacity:.07}
+.nd:hover{transform:translateY(-4px) scale(1.03);border-color:var(--nc)}
+.nd.on{border-color:var(--nc);box-shadow:0 0 0 2px var(--nc);transform:scale(1.05)}
+.nd.center::after{
+  content:'';position:absolute;inset:-4px;border-radius:20px;
+  border:2px solid var(--nc);animation:pr 2s ease-out infinite;pointer-events:none;
+}
+@keyframes pr{0%{opacity:.7;transform:scale(1)}100%{opacity:0;transform:scale(1.12)}}
+.nd-ico{
+  font-size:1.9rem;display:block;margin-bottom:.4rem;
+  filter:drop-shadow(0 0 8px var(--nc));
+  animation:flt 3s ease-in-out infinite;animation-delay:var(--d,0s);
+}
+@keyframes flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.nd-en{font-size:.63rem;font-weight:700;color:var(--nc);display:block;direction:ltr}
+.nd-ar{font-size:.8rem;color:rgba(255,255,255,.72);display:block;margin-top:.15rem}
+
+.info-card{
+  background:var(--card);border:1.5px solid rgba(0,255,213,.15);
+  border-radius:20px;padding:1.4rem;
+  animation:su .35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes su{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.ic-head{display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem;padding-bottom:.8rem;border-bottom:1px solid rgba(255,255,255,.06)}
+.ic-ico{font-size:2.1rem;filter:drop-shadow(0 0 12px var(--ac))}
+.ic-name{font-size:1.1rem;font-weight:900;color:var(--ac)}
+.ic-ar{font-size:.85rem;color:rgba(255,255,255,.38)}
+.def-box{
+  background:rgba(255,255,255,.03);border-right:3px solid var(--ac);
+  border-radius:8px;padding:.75rem 1rem;margin-bottom:.9rem;
+  font-size:.87rem;line-height:1.75;color:rgba(255,255,255,.78);
+}
+.s-title{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ac);margin-bottom:.5rem;opacity:.8}
+.c-list{list-style:none;margin-bottom:.9rem}
+.c-list li{
+  padding:.38rem 0;font-size:.84rem;color:rgba(255,255,255,.7);
+  border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;gap:.5rem;line-height:1.55;
+}
+.c-list li::before{content:'▸';color:var(--ac);flex-shrink:0}
+.f-tags{display:flex;flex-wrap:wrap;gap:.4rem}
+.ftag{
+  background:rgba(255,255,255,.04);border:1px solid var(--ac);
+  color:var(--ac);padding:.25rem .65rem;border-radius:20px;
+  font-size:.74rem;font-weight:600;transition:background .2s;cursor:default;
+}
+.ftag:hover{background:var(--ac);color:#000}
+.welcome{text-align:center;padding:2rem;color:rgba(255,255,255,.28)}
+.welcome .w-ico{font-size:3.5rem;display:block;margin-bottom:.6rem;animation:spin2 8s linear infinite}
+@keyframes spin2{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* PARTICLES */
+.ptc{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.pt{position:absolute;border-radius:50%;animation:dr linear infinite;opacity:0}
+@keyframes dr{0%{transform:translateY(100vh) translateX(0);opacity:0}10%{opacity:.5}90%{opacity:.3}100%{transform:translateY(-10vh) translateX(40px);opacity:0}}
+
+footer{text-align:center;padding:1.5rem;color:rgba(255,255,255,.15);font-size:.78rem;position:relative;z-index:1}
+</style>
+</head>
+<body>
+
+<div class="ptc" id="ptc"></div>
+
+<div class="hdr">
+  <h1>&#x1F52C; Histology Explorer<br>&#x645;&#x633;&#x62A;&#x643;&#x634;&#x641; &#x627;&#x644;&#x623;&#x646;&#x633;&#x62C;&#x629; &#x627;&#x644;&#x638;&#x647;&#x627;&#x631;&#x64A;&#x629;</h1>
+  <p>Lec 1-2 &middot; Epithelial Tissues &middot; &#x627;&#x636;&#x63A;&#x637; &#x644;&#x627;&#x633;&#x62A;&#x643;&#x634;&#x627;&#x641;</p>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="swTab('body',this)">&#x1FAC0; &#x627;&#x644;&#x62C;&#x633;&#x645; &#x627;&#x644;&#x628;&#x634;&#x631;&#x64A;</button>
+  <button class="tab" onclick="swTab('cell',this)">&#x1F52C; &#x645;&#x62C;&#x647;&#x631; &#x627;&#x644;&#x62E;&#x644;&#x64A;&#x629;</button>
+  <button class="tab" onclick="swTab('topics',this)">&#x1F4DA; &#x627;&#x644;&#x645;&#x648;&#x627;&#x636;&#x64A;&#x639;</button>
+</div>
+
+<!-- ══ BODY ══ -->
+<div id="sec-body" class="sec on">
+<div class="body-layout">
+  <div class="fig-box">
+    <h3>Press an organ</h3>
+    <div class="body-svg" id="bodySvg">
+      <svg viewBox="0 0 120 310" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bg2" cx="50%" cy="35%" r="55%">
+            <stop offset="0%" stop-color="#00ffd5" stop-opacity="0.07"/>
+            <stop offset="100%" stop-color="#03080f" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="120" height="310" fill="url(#bg2)" rx="18"/>
+        <!-- head -->
+        <ellipse cx="60" cy="28" rx="21" ry="24" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.5"/>
+        <!-- neck -->
+        <rect x="51" y="50" width="18" height="15" rx="5" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <!-- torso -->
+        <path d="M26 65 Q18 95 20 135 Q22 150 28 152 L92 152 Q98 150 100 135 Q102 95 94 65 Z" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.5"/>
+        <!-- lungs hint -->
+        <ellipse cx="44" cy="97" rx="13" ry="19" fill="#081e35" stroke="#1e3d5c" stroke-width="0.8"/>
+        <ellipse cx="76" cy="97" rx="13" ry="19" fill="#081e35" stroke="#1e3d5c" stroke-width="0.8"/>
+        <!-- heart -->
+        <path d="M54 87 Q60 80 66 87 Q70 93 60 102 Q50 93 54 87Z" fill="#081e35" stroke="#1e3d5c" stroke-width="0.8"/>
+        <!-- intestine -->
+        <ellipse cx="60" cy="128" rx="12" ry="10" fill="#081e35" stroke="#1e3d5c" stroke-width="0.8"/>
+        <!-- arms -->
+        <path d="M26 68 Q8 95 10 135 Q12 140 18 137 Q24 134 26 122 Q30 97 33 80Z" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <path d="M94 68 Q112 95 110 135 Q108 140 102 137 Q96 134 94 122 Q90 97 87 80Z" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <ellipse cx="14" cy="142" rx="7" ry="9" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <ellipse cx="106" cy="142" rx="7" ry="9" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <!-- pelvis -->
+        <path d="M28 152 Q26 170 33 172 L87 172 Q94 170 92 152Z" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <!-- legs -->
+        <path d="M33 172 Q28 210 30 250 Q31 258 39 256 Q47 254 47 246 Q48 210 50 172Z" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <path d="M87 172 Q92 210 90 250 Q89 258 81 256 Q73 254 73 246 Q72 210 70 172Z" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <ellipse cx="34" cy="261" rx="9" ry="6" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+        <ellipse cx="86" cy="261" rx="9" ry="6" fill="#0d2137" stroke="#1e3d5c" stroke-width="1.2"/>
+      </svg>
+      <!-- hotspots -->
+      <div class="hs" id="hs-skin"    style="left:92%;top:18%;color:#f472b6;border-color:#f472b6;background:rgba(244,114,182,.15)" onclick="showOrgan('skin')">&#x1FA79;</div>
+      <div class="hs" id="hs-lung"    style="left:28%;top:33%;color:#00ffd5;border-color:#00ffd5;background:rgba(0,255,213,.15)"   onclick="showOrgan('lung')">&#x1FAC1;</div>
+      <div class="hs" id="hs-heart"   style="left:72%;top:30%;color:#fb923c;border-color:#fb923c;background:rgba(251,146,60,.15)"  onclick="showOrgan('heart')">&#x1FAC0;</div>
+      <div class="hs" id="hs-gut"     style="left:50%;top:45%;color:#ffd700;border-color:#ffd700;background:rgba(255,215,0,.15)"   onclick="showOrgan('gut')">&#x1F300;</div>
+      <div class="hs" id="hs-kidney"  style="left:20%;top:52%;color:#c084fc;border-color:#c084fc;background:rgba(192,132,252,.15)" onclick="showOrgan('kidney')">&#x1FAD8;</div>
+      <div class="hs" id="hs-trachea" style="left:72%;top:21%;color:#34d399;border-color:#34d399;background:rgba(52,211,153,.15)"  onclick="showOrgan('trachea')">&#x1F4A8;</div>
+    </div>
+  </div>
+
+  <div class="organ-panel" id="organPanel">
+    <div class="empty-state">
+      <span class="big">&#x1F9EC;</span>
+      <p>&#x627;&#x636;&#x63A;&#x637; &#x639;&#x644;&#x649; &#x623;&#x64A; &#x639;&#x636;&#x648;<br>Press any organ</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ CELL ══ -->
+<div id="sec-cell" class="sec">
+<div class="cell-layout">
+  <div class="cell-btns" id="cellBtns"></div>
+  <div class="cell-grid">
+    <div class="canvas-wrap">
+      <canvas id="cv" width="300" height="300"></canvas>
+    </div>
+    <div class="cell-info" id="cellInfo">
+      <div class="ci-name" id="ciName">&#x627;&#x62E;&#x62A;&#x631; &#x646;&#x648;&#x639; &#x627;&#x644;&#x62E;&#x644;&#x64A;&#x629;</div>
+      <div class="ci-ar" id="ciAr">Choose a cell type</div>
+      <div id="legItems"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ TOPICS ══ -->
+<div id="sec-topics" class="sec">
+<div class="topics-layout">
+  <div class="nd-grid" id="ndGrid"></div>
+  <div class="info-card" id="infoCard">
+    <div class="welcome">
+      <span class="w-ico">&#x1F9EC;</span>
+      <p>&#x627;&#x62E;&#x62A;&#x631; &#x645;&#x648;&#x636;&#x648;&#x639;&#x627;&#x64B; &#x644;&#x639;&#x631;&#x636; &#x627;&#x644;&#x62A;&#x641;&#x627;&#x635;&#x64A;&#x644;<br>Select a topic to explore</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>Histology &middot; Lec 1-2 &middot; Epithelial Tissues &#x1F52C;</footer>
+
+<script>
+/* ── TAB SWITCHER ── */
+function swTab(name,btn){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('sec-'+name).classList.add('on');
+  btn.classList.add('on');
+  if(name==='cell') startCell();
+}
+
+/* ══════════════════════
+   ORGAN DATA
+══════════════════════ */
+const organs={
+  skin:{
+    ico:'🩹',name:'الجلد',en:'Skin',color:'#f472b6',
+    type:'Stratified Squamous Epithelium',typeAr:'ظهارة حرشفية طبقية',
+    desc:'الجلد هو أكبر عضو في الجسم. يتكون من طبقات متعددة تحمي الجسم من التآكل والجفاف والعوامل الخارجية.',
+    facts:[
+      '<b>طبقات متعددة</b> للحماية من الاحتكاك',
+      '<b>Basal cells</b> تتجدد باستمرار (Mitosis)',
+      '<b>Stratified</b> = أقوى حماية',
+      '<b>Avascular</b> — لا أوعية دموية',
+      '<b>Innervated</b> — غنية بالنهايات العصبية',
+    ]
+  },
+  lung:{
+    ico:'🫁',name:'الرئة',en:'Lung Alveoli',color:'#00ffd5',
+    type:'Simple Squamous Epithelium',typeAr:'ظهارة حرشفية بسيطة',
+    desc:'الأكياس الهوائية (Alveoli) مبطّنة بظهارة رفيعة جداً تسمح بتبادل الغازات بين الهواء والدم.',
+    facts:[
+      '<b>Single layer</b> — طبقة واحدة رفيعة',
+      'تبادل <b>O₂ / CO₂</b> عبر الغشاء القاعدي',
+      'مساحة سطحية ~<b>70 م²</b>',
+      '<b>Type II cells</b> تُفرز Surfactant',
+      'مثال كلاسيكي لـ <b>Simple Epithelium</b>',
+    ]
+  },
+  heart:{
+    ico:'🫀',name:'القلب',en:'Heart Endocardium',color:'#fb923c',
+    type:'Simple Squamous (Endothelium)',typeAr:'بطانة وعائية',
+    desc:'الطبقة الداخلية للقلب والأوعية الدموية مبطّنة بـ Endothelium — ظهارة بسيطة متخصصة.',
+    facts:[
+      '<b>Endothelium</b> = ظهارة بسيطة حرشفية',
+      'تبطّن كل <b>الأوعية الدموية</b> واللمفاوية',
+      'تُنظّم <b>مرور المواد</b> من وإلى الدم',
+      '<b>Tight junctions</b> تمنع التسرب',
+      'تُفرز مواد لتنظيم <b>ضغط الدم</b>',
+    ]
+  },
+  gut:{
+    ico:'🌀',name:'الأمعاء الدقيقة',en:'Small Intestine',color:'#ffd700',
+    type:'Simple Columnar Epithelium',typeAr:'ظهارة عمودية بسيطة',
+    desc:'مبطّنة بظهارة عمودية مع زغابات (Villi) وزغيبات دقيقة (Microvilli) لزيادة مساحة الامتصاص.',
+    facts:[
+      '<b>Columnar cells</b> — خلايا عمودية طويلة',
+      '<b>Microvilli</b> = Brush Border',
+      '<b>Goblet cells</b> تُفرز مخاطاً',
+      'تجديد كل <b>3-5 أيام</b>',
+      '<b>Tight junctions</b> تتحكم بالنفاذية',
+    ]
+  },
+  kidney:{
+    ico:'🫘',name:'الكلية',en:'Kidney Tubules',color:'#c084fc',
+    type:'Simple Cuboidal Epithelium',typeAr:'ظهارة مكعبية بسيطة',
+    desc:'الأنابيب الكلوية (Renal Tubules) مبطّنة بظهارة مكعبية بسيطة تُعيد امتصاص المواد المفيدة.',
+    facts:[
+      '<b>Cuboidal cells</b> — متساوية الأبعاد',
+      '<b>Central round nucleus</b> — نواة مركزية',
+      'وظيفة: <b>الإفراز وإعادة الامتصاص</b>',
+      'توجد أيضاً في <b>الغدد والقنوات</b>',
+      '<b>Microvilli</b> في الـ Proximal tubule',
+    ]
+  },
+  trachea:{
+    ico:'💨',name:'القصبة الهوائية',en:'Trachea',color:'#34d399',
+    type:'Pseudostratified Ciliated Columnar',typeAr:'ظهارة مهدّبة شبه طبقية',
+    desc:'مبطّنة بظهارة شبه طبقية مهدّبة — تبدو طبقية لكن جميع خلاياها تلامس الغشاء القاعدي.',
+    facts:[
+      '<b>Cilia</b> تتحرك لإخراج المخاط والغبار',
+      '<b>Goblet cells</b> تُفرز مخاطاً',
+      '<b>جميع الخلايا</b> على الغشاء القاعدي',
+      'أنوية في <b>مستويات مختلفة</b> = مظهر زائف',
+      'مثال رئيسي لـ <b>Pseudostratified</b>',
+    ]
+  }
+};
+
+function showOrgan(id){
+  const o=organs[id];
+  document.querySelectorAll('.hs').forEach(h=>h.classList.remove('on'));
+  document.getElementById('hs-'+id).classList.add('on');
+  const p=document.getElementById('organPanel');
+  p.classList.add('lit');
+  p.style.setProperty('--oc',o.color);
+  p.innerHTML=`
+    <div class="o-head">
+      <span class="o-ico">${o.ico}</span>
+      <div>
+        <div class="o-name" style="color:${o.color}">${o.name}</div>
+        <div class="o-en">${o.en}</div>
+      </div>
+    </div>
+    <span class="badge" style="color:${o.color};border-color:${o.color};background:${o.color}18">
+      ${o.type} &bull; ${o.typeAr}
+    </span>
+    <p class="o-desc">${o.desc}</p>
+    <div class="mini-title" style="color:${o.color}">&#x2699; Key Facts &bull; &#x645;&#x639;&#x644;&#x648;&#x645;&#x627;&#x62A; &#x623;&#x633;&#x627;&#x633;&#x64A;&#x629;</div>
+    <ul class="o-facts">
+      ${o.facts.map(f=>`<li style="--ac:${o.color}"><span style="color:${o.color}">&#x25B8;</span>${f}</li>`).join('')}
+    </ul>`;
+}
+
+/* ══════════════════════
+   CELL CANVAS
+══════════════════════ */
+const cells=[
+  {id:'sq',en:'Simple Squamous',ar:'حرشفية بسيطة',color:'#00ffd5',
+   parts:[{c:'#00ffd5',en:'Flat Nucleus',ar:'نواة مسطحة'},{c:'#0a4a40',en:'Cytoplasm',ar:'سيتوبلازم رفيع'},{c:'#34d399',en:'Basement Membrane',ar:'غشاء قاعدي'},{c:'#1a6b5e',en:'Cell Border',ar:'غشاء الخلية'}]},
+  {id:'cb',en:'Simple Cuboidal',ar:'مكعبية بسيطة',color:'#c084fc',
+   parts:[{c:'#c084fc',en:'Round Nucleus',ar:'نواة كروية'},{c:'#3d1a6b',en:'Cytoplasm',ar:'سيتوبلازم'},{c:'#7c3aed',en:'Basement Membrane',ar:'غشاء قاعدي'},{c:'#a78bfa',en:'Microvilli',ar:'زغيبات دقيقة'}]},
+  {id:'col',en:'Simple Columnar',ar:'عمودية بسيطة',color:'#ffd700',
+   parts:[{c:'#ffd700',en:'Basal Nucleus',ar:'نواة قاعدية'},{c:'#5a4200',en:'Cytoplasm',ar:'سيتوبلازم طويل'},{c:'#b8860b',en:'Basement Membrane',ar:'غشاء قاعدي'},{c:'#fbbf24',en:'Brush Border',ar:'حافة فرشاة'},{c:'#e2e8f0',en:'Goblet Cell',ar:'خلية كأسية'}]},
+  {id:'ps',en:'Pseudostratified',ar:'شبه طبقية مهدّبة',color:'#34d399',
+   parts:[{c:'#34d399',en:'Nuclei (multilevel)',ar:'أنوية متعددة المستويات'},{c:'#064e3b',en:'Cytoplasm',ar:'سيتوبلازم'},{c:'#6ee7b7',en:'Cilia',ar:'أهداب متحركة'},{c:'#065f46',en:'Basement Membrane',ar:'غشاء قاعدي مشترك'}]},
+  {id:'st',en:'Stratified Squamous',ar:'حرشفية طبقية',color:'#fb923c',
+   parts:[{c:'#fb923c',en:'Surface flat cells',ar:'خلايا سطحية مسطحة'},{c:'#7c2d12',en:'Intermediate cells',ar:'طبقة وسطى'},{c:'#ea580c',en:'Basal cells',ar:'خلايا قاعدية'},{c:'#fdba74',en:'Basement Membrane',ar:'غشاء قاعدي'}]},
+];
+
+let activeCell=cells[0], animId, T=0;
+
+// Build cell buttons
+const btnsDiv=document.getElementById('cellBtns');
+cells.forEach(c=>{
+  const b=document.createElement('button');
+  b.className='cbt'+(c.id===cells[0].id?' on':'');
+  b.style.setProperty('--cc',c.color);
+  b.style.setProperty('--cca',c.color+'44');
+  b.innerHTML=`${c.en}<br><small style="opacity:.55">${c.ar}</small>`;
+  b.onclick=()=>{
+    document.querySelectorAll('.cbt').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    activeCell=c; T=0;
+    buildLegend(c);
+  };
+  btnsDiv.appendChild(b);
+});
+
+function buildLegend(c){
+  document.getElementById('ciName').textContent=c.en;
+  document.getElementById('ciName').style.color=c.color;
+  document.getElementById('ciAr').textContent=c.ar;
+  document.getElementById('legItems').innerHTML=c.parts.map(p=>`
+    <div class="legend">
+      <div class="dot" style="background:${p.c};box-shadow:0 0 6px ${p.c}"></div>
+      <div class="leg-name"><b>${p.en}</b>${p.ar}</div>
+    </div>`).join('');
+}
+buildLegend(cells[0]);
+
+function startCell(){
+  if(animId) cancelAnimationFrame(animId);
+  const cv=document.getElementById('cv');
+  const ctx=cv.getContext('2d');
+  function loop(){
+    ctx.clearRect(0,0,300,300);
+    drawCell(ctx,activeCell,T);
+    T+=0.02;
+    animId=requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function glow(ctx,c,b=15){ctx.shadowColor=c;ctx.shadowBlur=b}
+function noGlow(ctx){ctx.shadowBlur=0}
+
+function drawCell(ctx,cell,t){
+  if(cell.id==='sq') drawSquamous(ctx,t);
+  else if(cell.id==='cb') drawCuboidal(ctx,t);
+  else if(cell.id==='col') drawColumnar(ctx,t);
+  else if(cell.id==='ps') drawPseudo(ctx,t);
+  else if(cell.id==='st') drawStratified(ctx,t);
+}
+
+function drawSquamous(ctx,t){
+  // BM
+  glow(ctx,'#34d399',10);
+  ctx.fillStyle='#0a3d2e'; ctx.fillRect(30,220,240,18);
+  ctx.fillStyle='#34d399'; ctx.fillRect(30,220,240,4);
+  noGlow(ctx);
+  // 3 flat cells
+  [[70,90],[160,80],[50,70]].forEach(([cx,w],i)=>{
+    const py=Math.sin(t+i)*2;
+    glow(ctx,'#00ffd5',8);
+    ctx.fillStyle='#0a4a40'; ctx.strokeStyle='#00ffd5'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.ellipse(cx+w/2,210+py,w/2,14,0,0,Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    noGlow(ctx);
+    glow(ctx,'#00ffd5',20);
+    ctx.fillStyle='#00ffd5';
+    ctx.beginPath(); ctx.ellipse(cx+w/2,210+py,11,5,0,0,Math.PI*2);
+    ctx.fill(); noGlow(ctx);
+  });
+  label(ctx,'Simple Squamous — خلايا مسطحة');
+}
+
+function drawCuboidal(ctx,t){
+  glow(ctx,'#7c3aed',10);
+  ctx.fillStyle='#2d1060'; ctx.fillRect(35,230,230,18);
+  ctx.fillStyle='#7c3aed'; ctx.fillRect(35,230,230,4);
+  noGlow(ctx);
+  for(let i=0;i<4;i++){
+    const x=40+i*58, py=Math.sin(t+i*.7)*2;
+    glow(ctx,'#c084fc',10);
+    ctx.fillStyle='#3d1a6b'; ctx.strokeStyle='#c084fc'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(x,178+py,50,52,5);
+    ctx.fill(); ctx.stroke();
+    noGlow(ctx);
+    glow(ctx,'#c084fc',18);
+    ctx.fillStyle='#c084fc';
+    ctx.beginPath(); ctx.arc(x+25,204+py,11,0,Math.PI*2);
+    ctx.fill(); noGlow(ctx);
+    for(let m=0;m<5;m++){
+      ctx.strokeStyle='#a78bfa'; ctx.lineWidth=1.3;
+      ctx.beginPath(); ctx.moveTo(x+5+m*10,178+py);
+      ctx.lineTo(x+5+m*10,166+py+Math.sin(t*2+m)*4); ctx.stroke();
+    }
+  }
+  label(ctx,'Simple Cuboidal — خلايا مكعبية');
+}
+
+function drawColumnar(ctx,t){
+  glow(ctx,'#b8860b',10);
+  ctx.fillStyle='#3d2800'; ctx.fillRect(30,240,240,18);
+  ctx.fillStyle='#ffd700'; ctx.fillRect(30,240,240,4);
+  noGlow(ctx);
+  [{x:38,g:false},{x:80,g:true},{x:122,g:false},{x:164,g:false},{x:206,g:true}].forEach((c,i)=>{
+    const py=Math.sin(t+i*.8)*2;
+    if(c.g){
+      glow(ctx,'#e2e8f0',8);
+      ctx.fillStyle='#1e293b'; ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(c.x+5,240+py); ctx.lineTo(c.x+2,185+py); ctx.lineTo(c.x+8,163+py);
+      ctx.bezierCurveTo(c.x+18,148+py,c.x+30,148+py,c.x+34,163+py);
+      ctx.lineTo(c.x+38,185+py); ctx.lineTo(c.x+35,240+py); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      noGlow(ctx);
+      glow(ctx,'#e2e8f0',12);
+      ctx.fillStyle='rgba(226,232,240,.55)';
+      ctx.beginPath(); ctx.ellipse(c.x+20,173+py,15,18,0,0,Math.PI*2);
+      ctx.fill();
+    } else {
+      glow(ctx,'#ffd700',8);
+      ctx.fillStyle='#5a4200'; ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.roundRect(c.x,158+py,38,82,4);
+      ctx.fill(); ctx.stroke();
+      noGlow(ctx);
+      glow(ctx,'#ffd700',16);
+      ctx.fillStyle='#ffd700';
+      ctx.beginPath(); ctx.ellipse(c.x+19,225+py,10,7,0,0,Math.PI*2);
+      ctx.fill();
+    }
+    noGlow(ctx);
+    for(let m=0;m<4;m++){
+      ctx.strokeStyle='#fbbf24'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(c.x+4+m*9,158+py);
+      ctx.lineTo(c.x+4+m*9,144+py+Math.sin(t*1.5+m+i)*5); ctx.stroke();
+    }
+  });
+  label(ctx,'Simple Columnar + Goblet Cells');
+}
+
+function drawPseudo(ctx,t){
+  glow(ctx,'#065f46',10);
+  ctx.fillStyle='#022c22'; ctx.fillRect(25,245,250,18);
+  ctx.fillStyle='#34d399'; ctx.fillRect(25,245,250,4);
+  noGlow(ctx);
+  [{x:30,h:88,nf:.5},{x:67,h:58,nf:.72},{x:104,h:82,nf:.42},{x:141,h:68,nf:.62},{x:178,h:78,nf:.48},{x:215,h:52,nf:.8}].forEach((c,i)=>{
+    const py=Math.sin(t+i*.6)*2;
+    const y=245-c.h+py;
+    glow(ctx,'#34d399',6);
+    ctx.fillStyle='#064e3b'; ctx.strokeStyle='#34d399'; ctx.lineWidth=1.2;
+    ctx.beginPath();
+    ctx.moveTo(c.x+2,245+py); ctx.lineTo(c.x,y+10);
+    ctx.lineTo(c.x+4,y); ctx.lineTo(c.x+27,y);
+    ctx.lineTo(c.x+29,y+10); ctx.lineTo(c.x+27,245+py); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    noGlow(ctx);
+    glow(ctx,'#34d399',18);
+    ctx.fillStyle='#34d399';
+    ctx.beginPath(); ctx.ellipse(c.x+14,y+c.h*c.nf,9,7,0,0,Math.PI*2);
+    ctx.fill(); noGlow(ctx);
+    for(let ci=0;ci<4;ci++){
+      const wave=Math.sin(t*2+ci*.9+i)*7;
+      ctx.strokeStyle='#6ee7b7'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(c.x+3+ci*7,y+py);
+      ctx.bezierCurveTo(c.x+3+ci*7+wave/2,y-8+py,c.x+3+ci*7+wave,y-16+py,c.x+3+ci*7+wave,y-24+py);
+      ctx.stroke();
+    }
+  });
+  label(ctx,'Pseudostratified — أنوية متعددة المستويات');
+}
+
+function drawStratified(ctx,t){
+  glow(ctx,'#ea580c',8);
+  ctx.fillStyle='#431407'; ctx.fillRect(25,260,250,15);
+  ctx.fillStyle='#fdba74'; ctx.fillRect(25,260,250,3);
+  noGlow(ctx);
+  // basal
+  for(let i=0;i<5;i++){
+    const py=Math.sin(t+i)*1.5;
+    glow(ctx,'#ea580c',10);
+    ctx.fillStyle='#7c2d12'; ctx.strokeStyle='#ea580c'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.ellipse(50+i*50,249+py,23,15,0,0,Math.PI*2);
+    ctx.fill(); ctx.stroke(); noGlow(ctx);
+    glow(ctx,'#fb923c',15);
+    ctx.fillStyle='#fb923c';
+    ctx.beginPath(); ctx.arc(50+i*50,249+py,8,0,Math.PI*2);
+    ctx.fill(); noGlow(ctx);
+  }
+  // intermediate
+  for(let i=0;i<5;i++){
+    const py=Math.sin(t+i+1)*1.5;
+    glow(ctx,'#c2410c',8);
+    ctx.fillStyle='#431407'; ctx.strokeStyle='#c2410c'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.ellipse(50+i*50,218+py,24,13,.1,0,Math.PI*2);
+    ctx.fill(); ctx.stroke(); noGlow(ctx);
+    ctx.fillStyle='#c2410c';
+    ctx.beginPath(); ctx.ellipse(50+i*50,218+py,7,5,0,0,Math.PI*2);
+    ctx.fill();
+  }
+  // surface
+  for(let i=0;i<6;i++){
+    const py=Math.sin(t+i+2)*1;
+    glow(ctx,'#fb923c',5);
+    ctx.fillStyle='#1c0a00'; ctx.strokeStyle='#fb923c'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.ellipse(38+i*45,195+py,23,8,0,0,Math.PI*2);
+    ctx.fill(); ctx.stroke(); noGlow(ctx);
+    ctx.fillStyle='rgba(251,146,60,.45)';
+    ctx.beginPath(); ctx.ellipse(38+i*45,195+py,8,3,0,0,Math.PI*2);
+    ctx.fill();
+  }
+  label(ctx,'Stratified Squamous — طبقات متعددة');
+}
+
+function label(ctx,txt){
+  ctx.fillStyle='rgba(255,255,255,.28)';
+  ctx.font='10px Tajawal,Arial';
+  ctx.fillText(txt,20,290);
+}
+
+/* ══════════════════════
+   TOPICS DATA
+══════════════════════ */
+const topics=[
+  {id:'epi',en:'Epithelial Tissue',ar:'الأنسجة الظهارية',color:'#00ffd5',ico:'🧫',center:true,
+   def:'طبقة واحدة أو أكثر من الخلايا متعددة الأوجه. One or more layers of closely aggregated cells with very little extracellular matrix.',
+   chars:['Cellularity — خلايا مرتبطة بإحكام','Polarity — سطح قمي + قاعدي / Apical + Basal','Avascularity — لا أوعية دموية / No blood vessels','Innervation — كثيفة التعصيب / Richly innervated','High regeneration — انقسام متكرر / Frequent mitosis'],
+   fns:['Physical protection','Selective permeability','Secretions','Sensations']},
+  {id:'sim',en:'Simple Epithelium',ar:'الظهارة البسيطة',color:'#ff6b9d',ico:'⬜',
+   def:'طبقة واحدة فقط — Single cell layer. All cells contact the basement membrane. Low-stress areas.',
+   chars:['طبقة خلوية واحدة / One cell thick','جميع الخلايا على الغشاء القاعدي / All on BM','في الرئة والأمعاء والأوعية / Lung, intestine, vessels','وظيفة: ترشيح وامتصاص / Filtration & absorption'],
+   fns:['Filtration','Absorption','Secretion','Gas exchange']},
+  {id:'str',en:'Stratified Epithelium',ar:'الظهارة الطبقية',color:'#ffd700',ico:'📚',
+   def:'طبقتان أو أكثر — Two or more layers. Only basal layer contacts basement membrane. Like a brick wall.',
+   chars:['طبقات خلوية متعددة / Multiple layers','الطبقة القاعدية على الغشاء فقط / Basal on BM only','في الجلد والمريء / Skin, esophagus','الخلايا القاعدية تتجدد / Basal cells regenerate'],
+   fns:['Protection from abrasion','Mechanical stress','Barrier function']},
+  {id:'pse',en:'Pseudostratified',ar:'شبه الطبقية',color:'#c084fc',ico:'🌊',
+   def:'تبدو طبقية لكن جميع الخلايا على الغشاء القاعدي — Looks stratified but ALL cells touch basement membrane.',
+   chars:['جميع الخلايا على الغشاء / All cells on BM','ليس كلها تصل السطح / Not all reach apex','أنوية في مستويات مختلفة / Nuclei at different levels','تُصنّف بسيطة / Classified as simple'],
+   fns:['Secretion','Absorption','Respiratory lining']},
+  {id:'bm',en:'Basement Membrane',ar:'الغشاء القاعدي',color:'#34d399',ico:'🔗',
+   def:'مصفوفة خارج خلوية رفيعة — Thin fibrous ECM separating epithelium from connective tissue.',
+   chars:['Basal lamina = كولاجين + بروتينات','Lamina lucida = طبقة صافية / Clear layer','Lamina densa = طبقة كثيفة / Dense layer','Reticular lamina = من النسيج الضام / CT'],
+   fns:['Support epithelium','Anchoring','Mechanical barrier','Blood filtration']},
+  {id:'jun',en:'Intercellular Junctions',ar:'الوصلات الخلوية',color:'#fb923c',ico:'🔩',
+   def:'مناطق تماس متخصصة — Specialized contact regions between adjacent plasma membranes.',
+   chars:['Tight junctions (Zonula occludens) — تختم','Adherens junction — خيوط أكتين / Actin filaments','Gap junctions — قنوات أيونية / Ion channels','Desmosomes — قرصية / Disk-shaped','Hemidesmosomes — نصف ديسموسوم'],
+   fns:['Cell adhesion','Communication','Barrier','Mechanical strength']},
+];
+
+let activeTopic=null;
+const grid=document.getElementById('ndGrid');
+topics.forEach((t,i)=>{
+  const nd=document.createElement('div');
+  nd.className='nd'+(t.center?' center':'');
+  nd.id='nd-'+t.id;
+  nd.style.setProperty('--nc',t.color);
+  nd.style.setProperty('--d',(i*.4)+'s');
+  nd.innerHTML=`<span class="nd-ico">${t.ico}</span><span class="nd-en">${t.en}</span><span class="nd-ar">${t.ar}</span>`;
+  nd.onclick=()=>showTopic(t);
+  grid.appendChild(nd);
+});
+
+function showTopic(t){
+  if(activeTopic===t.id){
+    activeTopic=null;
+    document.querySelectorAll('.nd').forEach(n=>n.classList.remove('on'));
+    document.getElementById('infoCard').innerHTML=`<div class="welcome"><span class="w-ico">🧬</span><p>اختر موضوعاً لعرض التفاصيل<br>Select a topic to explore</p></div>`;
+    document.getElementById('infoCard').style.removeProperty('--ac');
+    return;
+  }
+  activeTopic=t.id;
+  document.querySelectorAll('.nd').forEach(n=>n.classList.remove('on'));
+  document.getElementById('nd-'+t.id).classList.add('on');
+  const card=document.getElementById('infoCard');
+  card.style.setProperty('--ac',t.color);
+  card.innerHTML=`
+    <div class="ic-head">
+      <span class="ic-ico">${t.ico}</span>
+      <div><div class="ic-name">${t.en}</div><div class="ic-ar">${t.ar}</div></div>
+    </div>
+    <div class="def-box">${t.def}</div>
+    <div class="s-title">Characteristics &bull; الخصائص</div>
+    <ul class="c-list">${t.chars.map(c=>`<li>${c}</li>`).join('')}</ul>
+    <div class="s-title">Functions &bull; الوظائف</div>
+    <div class="f-tags">${t.fns.map(f=>`<span class="ftag">${f}</span>`).join('')}</div>`;
+}
+
+/* ── PARTICLES ── */
+const pc=document.getElementById('ptc');
+['#00ffd5','#c084fc','#f472b6','#ffd700','#34d399','#fb923c'].forEach(c=>{
+  for(let i=0;i<4;i++){
+    const p=document.createElement('div');
+    p.className='pt';
+    const s=2+Math.random()*3;
+    p.style.cssText=`left:${Math.random()*100}%;background:${c};width:${s}px;height:${s}px;animation-duration:${9+Math.random()*12}s;animation-delay:${Math.random()*12}s`;
+    pc.appendChild(p);
+  }
+});
+</script>
+</body>
+</html>
